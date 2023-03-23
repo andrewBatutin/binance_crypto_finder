@@ -1,6 +1,8 @@
 import json
 import os
+from datetime import date
 
+from forex_python.converter import CurrencyRates
 import requests
 from dataclasses import dataclass
 from typing import List
@@ -17,10 +19,18 @@ class BinanceFiatList:
 @dataclass
 class Trade:
     price: float
+    asset: str
+    fiat: str
     trader_name: str
     payTypes: [str]
     min_limit: float
     max_limit: float
+
+@dataclass
+class BuySellTrade:
+    buy: Trade
+    sell: Trade
+    output: float
 
 
 def list_fiat_trades(params: BinanceFiatList) -> dict:
@@ -53,12 +63,12 @@ def list_fiat_trades(params: BinanceFiatList) -> dict:
 def map_trades(trades):
     top_trades = []
     for item in trades["data"]:
-        price = item["adv"]["price"]
+        price = float(item["adv"]["price"])
         trade_methods = [method["identifier"] for method in item["adv"]["tradeMethods"]]
         name = item["advertiser"]["nickName"]
-        min_amount = item["adv"]["minSingleTransAmount"]
-        max_amount = item["adv"]["dynamicMaxSingleTransAmount"]
-        trade = Trade(price=price, trader_name=name, payTypes=trade_methods, min_limit=min_amount, max_limit=max_amount)
+        min_amount = float(item["adv"]["minSingleTransAmount"])
+        max_amount = float(item["adv"]["dynamicMaxSingleTransAmount"])
+        trade = Trade(price=price,asset=item["adv"]["asset"], fiat=item["adv"]["fiatUnit"],  trader_name=name, payTypes=trade_methods, min_limit=min_amount, max_limit=max_amount)
         top_trades.append(trade)
     return top_trades
 
@@ -68,6 +78,33 @@ def get_best_trade(fiat: BinanceFiatList):
     top_trades = map_trades(trades)
     top_trade = min(top_trades, key=lambda x: x.price)
     return top_trade
+
+
+def get_exchange_rate(base_currency, target_currency):
+    """Get the exchange rate between two currencies"""
+    return 0.12
+
+
+def get_best_crypto_type(buy_currency:str, sell_currency:str, amount:float, crypto_list=None):
+    if crypto_list is None:
+        crypto_list = ["BTC", "USDT"]
+    buy_sell_trades = []
+    for crypto in crypto_list:
+        buy_crypto_trade = BinanceFiatList(payTypes=[], countries=[], asset=crypto, fiat=buy_currency, tradeType="BUY", transAmount=amount)
+        best_buy = get_best_trade(buy_crypto_trade)
+
+        ex_rate = get_exchange_rate(buy_currency, sell_currency)
+        est_sell_amount = float(amount) * ex_rate
+
+        sell_crypto_trade = BinanceFiatList(payTypes=[], countries=[], asset=crypto, fiat=sell_currency, tradeType="SELL", transAmount=est_sell_amount)
+        best_sell = get_best_trade(sell_crypto_trade)
+
+        output = (amount / best_buy.price) * best_sell.price
+        bs_trade = BuySellTrade(buy=best_buy, sell=best_sell, output=output)
+        buy_sell_trades.append(bs_trade)
+
+    return max(buy_sell_trades, key=lambda x: x.output)
+
 
 def get_best_exchange_rate(buy_currency, sell_currency, amount, base_currency='USDT'):
     # Replace YOUR_API_KEY with your own API key
