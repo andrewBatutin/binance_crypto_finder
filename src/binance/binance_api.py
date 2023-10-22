@@ -76,6 +76,8 @@ def map_trades(trades):
 def get_best_trade(fiat: BinanceFiatList):
     trades = list_fiat_trades(fiat)
     top_trades = map_trades(trades)
+    if not top_trades:
+        return None
     top_trade = min(top_trades, key=lambda x: x.price)
     return top_trade
 
@@ -90,14 +92,18 @@ def get_best_crypto_type(buy_currency:str, sell_currency:str, amount:float, cryp
         crypto_list = ["BTC", "USDT"]
     buy_sell_trades = []
     for crypto in crypto_list:
-        buy_crypto_trade = BinanceFiatList(payTypes=[], countries=[], asset=crypto, fiat=buy_currency, tradeType="BUY", transAmount=amount)
+        buy_crypto_trade = BinanceFiatList(payTypes=["Monobank", "Privatbank"], countries=[], asset=crypto, fiat=buy_currency, tradeType="BUY", transAmount=amount)
         best_buy = get_best_trade(buy_crypto_trade)
+        if not best_buy:
+            continue
 
         ex_rate = get_exchange_rate(buy_currency, sell_currency)
         est_sell_amount = float(amount) * ex_rate
 
         sell_crypto_trade = BinanceFiatList(payTypes=[], countries=[], asset=crypto, fiat=sell_currency, tradeType="SELL", transAmount=est_sell_amount)
         best_sell = get_best_trade(sell_crypto_trade)
+        if not best_sell:
+            continue
 
         output = (amount / best_buy.price) * best_sell.price
         bs_trade = BuySellTrade(buy=best_buy, sell=best_sell, output=output)

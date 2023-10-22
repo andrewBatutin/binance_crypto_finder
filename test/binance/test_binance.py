@@ -14,5 +14,5 @@ def test_get_best_trade():
 
 
 def test_best_full_trade():
-    best_t = get_best_crypto_type(buy_currency="UAH", sell_currency="PLN", amount=20000)
+    best_t = get_best_crypto_type(buy_currency="UAH", sell_currency="EUR", amount=39000, crypto_list=["USDT", "BTC", "BUSD", "BNB", "ETH", "SHIB"])
     assert best_t is not None
